@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,10 +15,9 @@
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 
+#define BUFSIZE 1500
 #define PORT 1337
 
-// Generate a Key and Sign a Certificate WebRTC uses self-signed certificates that are verified
-// by the fingerprint exchanged during signaling
 int set_key_and_certificate(SSL_CTX* ssl_ctx) {
     int ret = 0;
     EVP_PKEY *pkey = NULL;
@@ -114,9 +114,8 @@ int openssl_verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx) {
     return 1;
 }
 
-int create_ssl_session_and_bio(void) {
+int create_ssl_session_and_bio(SSL **ssl) {
     SSL_CTX* ssl_ctx = NULL;
-    SSL* ssl = NULL;
     BIO *read_BIO = NULL, *write_BIO = NULL;
 
     if ((ssl_ctx = SSL_CTX_new(DTLS_method())) == NULL) {
@@ -138,7 +137,7 @@ int create_ssl_session_and_bio(void) {
         return 0;
     }
 
-    if ((ssl = SSL_new(ssl_ctx)) == NULL) {
+    if ((*ssl = SSL_new(ssl_ctx)) == NULL) {
         return 0;
     }
 
@@ -152,7 +151,7 @@ int create_ssl_session_and_bio(void) {
 
     BIO_set_mem_eof_return(read_BIO, -1);
     BIO_set_mem_eof_return(write_BIO, -1);
-    SSL_set_bio(ssl, read_BIO, write_BIO);
+    SSL_set_bio(*ssl, read_BIO, write_BIO);
 
     return 1;
 }
