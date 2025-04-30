@@ -26,7 +26,7 @@ int main(void) {
         exit(EXIT_FAILURE);
     }
 
-    if (generate_key_and_certificate()) {
+    if (!create_ssl_session_and_bio()) {
         exit(EXIT_FAILURE);
     }
 
