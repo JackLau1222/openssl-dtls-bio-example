@@ -1,2 +1,5 @@
+cert.pem
 client
+key.pem
 server
+server.csr
