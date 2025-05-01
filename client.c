@@ -9,7 +9,6 @@ int main(void) {
     int sockfd;
     struct sockaddr_in dest_addr, src_addr;
     char buffer[BUFSIZE];
-    ssize_t sent_bytes;
     struct timeval timeout;
     socklen_t src_addr_len = sizeof(src_addr);
 
@@ -47,10 +46,12 @@ int main(void) {
     int ssl_ret = SSL_do_handshake(ssl);
 
     while (1) {
-        int ssl_error = SSL_get_error(ssl, ssl_ret);
 
         // If timeout is 0 we just started OR is time for rtx because of DTLSv1_get_timeout
         if (timeout.tv_sec == 0 && timeout.tv_usec == 0) {
+
+            // Only write if we have something too write
+            int ssl_error = SSL_get_error(ssl, ssl_ret);
             if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
                 BIO* write_bio = SSL_get_wbio(ssl);
 
@@ -72,11 +73,6 @@ int main(void) {
                     exit(EXIT_FAILURE);
                 }
             }
-        }
-
-        if (SSL_is_init_finished(ssl))  {
-            printf("Handshake Complete");
-            exit(EXIT_SUCCESS);
         }
 
         // Populate the timeout
@@ -102,11 +98,9 @@ int main(void) {
                 exit(EXIT_FAILURE);
             }
 
-
+            // Instruct OpenSSL to process the DTLS packet we just handed to it
             ERR_clear_error();
-            int err = SSL_get_error(ssl, SSL_read(ssl, buffer, n));
-
-            switch (err) {
+            switch (SSL_get_error(ssl, SSL_read(ssl, buffer, n))) {
                 case SSL_ERROR_ZERO_RETURN:
                     fprintf(stderr, "close_notify");
                     exit(EXIT_SUCCESS);
@@ -118,8 +112,15 @@ int main(void) {
                 exit(EXIT_FAILURE);
             }
 
+            // Send packets to the host that contacted us
             memcpy(&dest_addr, &src_addr, sizeof(src_addr));
             memset(&timeout, 0, sizeof(timeout));
+        }
+
+        // Handshake is complete, we can exit!
+        if (SSL_is_init_finished(ssl))  {
+            printf("Handshake Complete");
+            exit(EXIT_SUCCESS);
         }
     }
 
