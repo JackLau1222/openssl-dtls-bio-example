@@ -102,17 +102,24 @@ int main(void) {
                 exit(EXIT_FAILURE);
             }
 
+
             ERR_clear_error();
-            ssl_ret = SSL_read(ssl, buffer, n);
-            if (ssl_ret == 0 && SSL_get_error(ssl, ssl_ret) == SSL_ERROR_ZERO_RETURN) {
-                printf("close_notify");
-                exit(EXIT_SUCCESS);
-            } else if (ssl_ret <= 0) {
+            int err = SSL_get_error(ssl, SSL_read(ssl, buffer, n));
+
+            switch (err) {
+                case SSL_ERROR_ZERO_RETURN:
+                    fprintf(stderr, "close_notify");
+                    exit(EXIT_SUCCESS);
+                case SSL_ERROR_WANT_READ:
+                case SSL_ERROR_WANT_WRITE:
+                    break;
+                default:
                 fprintf(stderr, "SSL_read failed");
                 exit(EXIT_FAILURE);
             }
 
             memcpy(&dest_addr, &src_addr, sizeof(src_addr));
+            memset(&timeout, 0, sizeof(timeout));
         }
     }
 
